@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="cololight"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
+	xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
+
+	<thing-type id="cololight">
+		<label>Cololight</label>
+		<description>LED Devices manufactured by Cololight</description>
+
+		<channels>
+			<channel id="power" typeId="power"/>
+			<channel id="brightness" typeId="brightness"/>
+		</channels>
+
+		<config-description>
+			<parameter name="host" type="text" required="true">
+				<label>host</label>
+				<description>Hostname or IP address or host name of the Cololight</description>
+			</parameter>
+			<parameter name="port" type="integer" required="false" min="1024" max="49151">
+				<label>Port</label>
+				<description>Used Port of the device</description>
+				<default>8900</default>
+				<advanced>true</advanced>
+			</parameter>
+		</config-description>
+	</thing-type>
+
+	<channel-type id="power">
+		<item-type>Switch</item-type>
+		<label>Power</label>
+		<description>Power state</description>
+	</channel-type>
+	<channel-type id="brightness">
+		<item-type>Dimmer</item-type>
+		<label>Brightness</label>
+		<category>Brightness</category>
+	</channel-type>
+</thing:thing-descriptions>
