@@ -65,10 +65,6 @@ public class LedStripDriver {
         this("localhost", 8900, 3000);
     }
 
-    public LedStripDriver(String host) {
-        this(host, 8900, 3000);
-    }
-
     public LedStripDriver(String host, int port) {
         this(host, port, 3000);
     }

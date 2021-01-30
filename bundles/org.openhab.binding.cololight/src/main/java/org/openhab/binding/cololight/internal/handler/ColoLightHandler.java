@@ -88,42 +88,29 @@ public class ColoLightHandler extends BaseThingHandler {
     @Override
     public void initialize() {
         logger.debug("Start initializing!");
-        ColoLightConfiguration config = getConfigAs(ColoLightConfiguration.class);
+        updateStatus(ThingStatus.UNKNOWN);
 
+        ColoLightConfiguration config = getConfigAs(ColoLightConfiguration.class);
         ledStripDriver = new LedStripDriver(config.host, config.port, config.socketTimeout);
 
-        if (ledStripDriver.getStatusIsOk()) {
-            updateStatus(ThingStatus.ONLINE);
-        } else {
-            updateStatus(ThingStatus.OFFLINE);
-        }
+        scheduler.execute(() -> {
+            boolean thingReachable = ledStripDriver.getStatusIsOk();
+            if (thingReachable) {
+                updateStatus(ThingStatus.ONLINE);
+            } else {
+                updateStatus(ThingStatus.OFFLINE);
+            }
+        });
 
-        pollingJob = scheduler.scheduleWithFixedDelay(this::statusPoll, 0, 30, TimeUnit.SECONDS);
-
-        // Example for background initialization:
-        // scheduler.execute(() -> {
-        // boolean thingReachable = true; // <background task with long running initialization here>
-        // // when done do:
-        // if (thingReachable) {
-        // updateStatus(ThingStatus.ONLINE);
-        // } else {
-        // updateStatus(ThingStatus.OFFLINE);
-        // }
-        // });
-
-        // logger.debug("Finished initializing!");
-
-        // Note: When initialization can NOT be done set the status with more details for further
-        // analysis. See also class ThingStatusDetail for all available status details.
-        // Add a description to give user information to understand why thing does not work as expected. E.g.
-        // updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
-        // "Can not access device as username and/or password are invalid");
+        pollingJob = scheduler.scheduleWithFixedDelay(this::statusPoll, 30, 30, TimeUnit.SECONDS);
     }
 
     public void statusPoll() {
-        assert ledStripDriver != null;
         logger.debug("Polling for Cololight status");
-        if (ledStripDriver.getStatusIsOk()) {
+        if (ledStripDriver == null) {
+            updateStatus(ThingStatus.UNKNOWN);
+        }
+        else if (ledStripDriver.getStatusIsOk()) {
             updateStatus(ThingStatus.ONLINE);
         } else {
             updateStatus(ThingStatus.OFFLINE);
@@ -132,8 +119,9 @@ public class ColoLightHandler extends BaseThingHandler {
 
     @Override
     public void dispose() {
-        assert pollingJob != null;
         logger.debug("Stop polling for Cololight status");
-        pollingJob.cancel(true);
+        if (pollingJob != null) {
+            pollingJob.cancel(true);
+        }
     }
 }
