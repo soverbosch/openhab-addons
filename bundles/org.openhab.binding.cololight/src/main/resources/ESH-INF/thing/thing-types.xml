@@ -24,6 +24,12 @@
 				<default>8900</default>
 				<advanced>true</advanced>
 			</parameter>
+			<parameter name="socketTimeout" type="integer" required="false" min="0" max="49151">
+				<label>Timeout</label>
+				<description>Socket timeout in milliseconds</description>
+				<default>3000</default>
+				<advanced>true</advanced>
+			</parameter>
 		</config-description>
 	</thing-type>
 

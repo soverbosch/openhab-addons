@@ -1,8 +1,11 @@
 package org.openhab.binding.cololight.internal;
 
 import java.io.IOException;
-import java.net.*;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 
+import org.openhab.binding.cololight.internal.exception.CommunicationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,6 +14,7 @@ public class LedStripDriver {
 
     private final String host;
     private final int port;
+    private final int socketTimeout;
 
     // Taken from https://haus-automatisierung.com/projekt/2019/04/05/projekt-cololight-fhem.html
     protected static byte[] prefix = { (byte) 0x53, (byte) 0x5A, (byte) 0x30, (byte) 0x30, (byte) 0x00, (byte) 0x00,
@@ -26,7 +30,6 @@ public class LedStripDriver {
             (byte) 0x02, (byte) 0xFF };
     protected static byte[] on = { (byte) 0x04, (byte) 0x01, (byte) 0x03, (byte) 0x01, (byte) 0xcf, (byte) 0x35 };
     protected static byte[] off = { (byte) 0x04, (byte) 0x01, (byte) 0x03, (byte) 0x01, (byte) 0xce, (byte) 0x1e };
-
     protected static byte[] brightnessZeroPercent = { (byte) 0x53, (byte) 0x5A, (byte) 0x30, (byte) 0x30, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x20, (byte) 0x00, (byte) 0x00, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
@@ -45,15 +48,35 @@ public class LedStripDriver {
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x15, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
             (byte) 0x04, (byte) 0x16, (byte) 0x03, (byte) 0x01, (byte) 0xCF, (byte) 0x63 };
+    protected static byte[] statusCheckMessageOne = { (byte) 0x53, (byte) 0x5a, (byte) 0x30, (byte) 0x30, (byte) 0x00,
+            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x1e, (byte) 0x00, (byte) 0x00, (byte) 0x00,
+            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
+            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x11, (byte) 0x00, (byte) 0x00,
+            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x0b,
+            (byte) 0x07, (byte) 0x01, (byte) 0x86 };
+    protected static byte[] statusCheckMessageTwo = { (byte) 0x53, (byte) 0x5a, (byte) 0x30, (byte) 0x30, (byte) 0x00,
+            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x1e, (byte) 0x00, (byte) 0x00, (byte) 0x00,
+            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
+            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x08, (byte) 0x00, (byte) 0x00,
+            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x03,
+            (byte) 0x08, (byte) 0x01, (byte) 0x01 };
 
     public LedStripDriver() {
-        this.port = 8900;
-        this.host = "localhost";
+        this("localhost", 8900, 3000);
+    }
+
+    public LedStripDriver(String host) {
+        this(host, 8900, 3000);
     }
 
     public LedStripDriver(String host, int port) {
+        this(host, port, 3000);
+    }
+
+    public LedStripDriver(String host, int port, int socketTimeout) {
         this.host = host;
         this.port = port;
+        this.socketTimeout = socketTimeout;
     }
 
     protected byte[] getBytesForPower(boolean switchOn) {
@@ -68,15 +91,53 @@ public class LedStripDriver {
         return result;
     }
 
-    public void setPowerOn() {
+    public boolean getStatusIsOk() {
+        logger.debug("Check if we can reach and communicate with the Cololight");
+        // Check if we can reach it
+        try {
+            if (InetAddress.getByName(this.host).isReachable(this.socketTimeout)) {
+                // Check if we can communicate wit it
+                LedStripStatus ledStripStatus = this.getPowerStatus();
+                if (ledStripStatus == LedStripStatus.ON || ledStripStatus == LedStripStatus.OFF) {
+                    logger.debug("Yes we can!!!!");
+                    return true;
+                }
+            }
+        } catch (IOException | CommunicationException e) {
+            e.printStackTrace();
+        }
+        logger.debug("No we can't!!!!");
+        return false;
+    }
+
+    public void setPowerOn() throws CommunicationException {
+        logger.debug("Turning light on");
         sendRaw(getBytesForPower(true));
     }
 
-    public void setPowerOff() {
+    public void setPowerOff() throws CommunicationException {
+        logger.debug("Turning light off");
         sendRaw(getBytesForPower(false));
     }
 
-    public void setBrightness(int percentage) {
+    public LedStripStatus getPowerStatus() throws CommunicationException {
+        logger.debug("Getting Cololight status");
+        sendRaw(statusCheckMessageOne);
+        byte[] received = sendRaw(statusCheckMessageTwo);
+        LedStripStatus result = LedStripStatus.UNKNOWN;
+
+        if (received[40] == (byte) 0xCF) {
+            logger.debug("Cololight is on");
+            result = LedStripStatus.ON;
+        } else if (received[40] == (byte) 0xCE) {
+            logger.debug("Cololight is off");
+            result = LedStripStatus.OFF;
+        }
+
+        return result;
+    }
+
+    public void setBrightness(int percentage) throws CommunicationException {
         logger.debug("Brightness {}%", percentage);
 
         sendRaw(getBytesForBrightness(percentage));
@@ -107,17 +168,28 @@ public class LedStripDriver {
         return builder.toString();
     }
 
-    private void sendRaw(byte[] data) {
+    private byte[] sendRaw(byte[] data) throws CommunicationException {
         try {
+            byte[] received;
             DatagramSocket socket = new DatagramSocket();
+            socket.setSoTimeout(this.socketTimeout);
             InetAddress address = InetAddress.getByName(host);
 
-            System.out.printf("Sending %s%n", bytesToHex(data));
+            logger.trace("Sending {}", bytesToHex(data));
             DatagramPacket packet = new DatagramPacket(data, data.length, address, port);
             socket.send(packet);
+
+            byte[] buf = new byte[256];
+            packet = new DatagramPacket(buf, buf.length);
+            socket.receive(packet);
+            received = new byte[packet.getLength()];
+            System.arraycopy(packet.getData(), 0, received, 0, packet.getLength());
+            logger.trace("Received {}", bytesToHex(received));
             socket.close();
+
+            return received;
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new CommunicationException(e.getMessage());
         }
     }
 }

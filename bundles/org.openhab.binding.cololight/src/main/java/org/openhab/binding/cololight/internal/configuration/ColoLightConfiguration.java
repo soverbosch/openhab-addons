@@ -22,4 +22,6 @@ public class ColoLightConfiguration {
     public String host;
     // Port (default to 8900)
     public Integer port;
+    // Socket timeout (default to 3000ms)
+    public Integer socketTimeout;
 }

@@ -14,16 +14,24 @@ package org.openhab.binding.cololight.internal.handler;
 
 import static org.openhab.binding.cololight.internal.ColoLightBindingConstants.*;
 
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.core.library.types.OnOffType;
 import org.eclipse.smarthome.core.thing.ChannelUID;
 import org.eclipse.smarthome.core.thing.Thing;
 import org.eclipse.smarthome.core.thing.ThingStatus;
+import org.eclipse.smarthome.core.thing.ThingStatusDetail;
 import org.eclipse.smarthome.core.thing.binding.BaseThingHandler;
 import org.eclipse.smarthome.core.types.Command;
+import org.eclipse.smarthome.core.types.RefreshType;
+import org.eclipse.smarthome.core.types.UnDefType;
 import org.openhab.binding.cololight.internal.LedStripDriver;
+import org.openhab.binding.cololight.internal.LedStripStatus;
 import org.openhab.binding.cololight.internal.configuration.ColoLightConfiguration;
+import org.openhab.binding.cololight.internal.exception.CommunicationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,9 +46,9 @@ public class ColoLightHandler extends BaseThingHandler {
 
     private final Logger logger = LoggerFactory.getLogger(ColoLightHandler.class);
 
-    private @Nullable ColoLightConfiguration config;
-
     private @Nullable LedStripDriver ledStripDriver;
+
+    private @Nullable ScheduledFuture<?> pollingJob;
 
     public ColoLightHandler(Thing thing) {
         super(thing);
@@ -48,30 +56,49 @@ public class ColoLightHandler extends BaseThingHandler {
 
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
-        if (CHANNEL_POWER.equals(channelUID.getId())) {
-            if (command instanceof OnOffType) {
-                if (command.equals(OnOffType.ON)) {
-                    ledStripDriver.setPowerOn();
-                } else {
-                    ledStripDriver.setPowerOff();
+        assert ledStripDriver != null;
+        try {
+            if (CHANNEL_POWER.equals(channelUID.getId())) {
+                if (command instanceof OnOffType) {
+                    logger.debug("Switching Cololight to {}", command);
+                    if (command.equals(OnOffType.ON)) {
+                        ledStripDriver.setPowerOn();
+                        updateState(channelUID, OnOffType.ON);
+                    } else {
+                        ledStripDriver.setPowerOff();
+                        updateState(channelUID, OnOffType.OFF);
+                    }
+                } else if (command instanceof RefreshType) {
+                    LedStripStatus ledStripStatus = ledStripDriver.getPowerStatus();
+                    logger.debug("Requesting refresh on Cololight, current state is {}", ledStripStatus);
+                    if (ledStripStatus == LedStripStatus.ON) {
+                        updateState(channelUID, OnOffType.ON);
+                    } else if (ledStripStatus == LedStripStatus.OFF) {
+                        updateState(channelUID, OnOffType.OFF);
+                    } else {
+                        updateState(channelUID, UnDefType.UNDEF);
+                    }
                 }
             }
-
-            // Note: if communication with thing fails for some reason,
-            // indicate that by setting the status with detail information:
-            // updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-            // "Could not control device at IP address x.x.x.x");
+        } catch (CommunicationException e) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
         }
     }
 
     @Override
     public void initialize() {
         logger.debug("Start initializing!");
-        config = getConfigAs(ColoLightConfiguration.class);
+        ColoLightConfiguration config = getConfigAs(ColoLightConfiguration.class);
 
-        updateStatus(ThingStatus.ONLINE);
+        ledStripDriver = new LedStripDriver(config.host, config.port, config.socketTimeout);
 
-        ledStripDriver = new LedStripDriver(config.host, config.port);
+        if (ledStripDriver.getStatusIsOk()) {
+            updateStatus(ThingStatus.ONLINE);
+        } else {
+            updateStatus(ThingStatus.OFFLINE);
+        }
+
+        pollingJob = scheduler.scheduleWithFixedDelay(this::statusPoll, 0, 30, TimeUnit.SECONDS);
 
         // Example for background initialization:
         // scheduler.execute(() -> {
@@ -91,5 +118,22 @@ public class ColoLightHandler extends BaseThingHandler {
         // Add a description to give user information to understand why thing does not work as expected. E.g.
         // updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
         // "Can not access device as username and/or password are invalid");
+    }
+
+    public void statusPoll() {
+        assert ledStripDriver != null;
+        logger.debug("Polling for Cololight status");
+        if (ledStripDriver.getStatusIsOk()) {
+            updateStatus(ThingStatus.ONLINE);
+        } else {
+            updateStatus(ThingStatus.OFFLINE);
+        }
+    }
+
+    @Override
+    public void dispose() {
+        assert pollingJob != null;
+        logger.debug("Stop polling for Cololight status");
+        pollingJob.cancel(true);
     }
 }
