@@ -57,6 +57,7 @@ public class ColoLightHandler extends BaseThingHandler {
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
         assert ledStripDriver != null;
+        logger.debug("Handle command {} for channel {}", command, channelUID);
         try {
             if (CHANNEL_POWER.equals(channelUID.getId())) {
                 if (command instanceof OnOffType) {
@@ -109,9 +110,17 @@ public class ColoLightHandler extends BaseThingHandler {
         logger.debug("Polling for Cololight status");
         if (ledStripDriver == null) {
             updateStatus(ThingStatus.UNKNOWN);
-        }
-        else if (ledStripDriver.getStatusIsOk()) {
+        } else if (ledStripDriver.getStatusIsOk()) {
             updateStatus(ThingStatus.ONLINE);
+            try {
+                final OnOffType onOffType = (ledStripDriver.getPowerStatus() == LedStripStatus.ON) ? OnOffType.ON
+                        : OnOffType.OFF;
+                getThing().getChannels().forEach(channel -> {
+                    updateState(channel.getUID(), onOffType);
+                });
+            } catch (CommunicationException communicationException) {
+                updateStatus(ThingStatus.OFFLINE);
+            }
         } else {
             updateStatus(ThingStatus.OFFLINE);
         }
