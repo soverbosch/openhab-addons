@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.core.library.types.OnOffType;
+import org.eclipse.smarthome.core.library.types.PercentType;
 import org.eclipse.smarthome.core.thing.ChannelUID;
 import org.eclipse.smarthome.core.thing.Thing;
 import org.eclipse.smarthome.core.thing.ThingStatus;
@@ -27,7 +28,6 @@ import org.eclipse.smarthome.core.thing.ThingStatusDetail;
 import org.eclipse.smarthome.core.thing.binding.BaseThingHandler;
 import org.eclipse.smarthome.core.types.Command;
 import org.eclipse.smarthome.core.types.RefreshType;
-import org.eclipse.smarthome.core.types.UnDefType;
 import org.openhab.binding.cololight.internal.LedStripDriver;
 import org.openhab.binding.cololight.internal.LedStripStatus;
 import org.openhab.binding.cololight.internal.configuration.ColoLightConfiguration;
@@ -59,7 +59,16 @@ public class ColoLightHandler extends BaseThingHandler {
         assert ledStripDriver != null;
         logger.debug("Handle command {} for channel {}", command, channelUID);
         try {
-            if (CHANNEL_POWER.equals(channelUID.getId())) {
+            if (command instanceof RefreshType) {
+                LedStripStatus ledStripStatus = ledStripDriver.getLedStripStatus();
+                logger.debug("Requesting refresh on Cololight, current state is {}", ledStripStatus);
+                if (CHANNEL_POWER.equals(channelUID.getId())) {
+                    updateState(channelUID, ledStripStatus.getPower());
+                }
+                if (CHANNEL_BRIGHTNESS.equals(channelUID.getId())) {
+                    updateState(channelUID, ledStripStatus.getBrightness());
+                }
+            } else if (CHANNEL_POWER.equals(channelUID.getId())) {
                 if (command instanceof OnOffType) {
                     logger.debug("Switching Cololight to {}", command);
                     if (command.equals(OnOffType.ON)) {
@@ -69,16 +78,11 @@ public class ColoLightHandler extends BaseThingHandler {
                         ledStripDriver.setPowerOff();
                         updateState(channelUID, OnOffType.OFF);
                     }
-                } else if (command instanceof RefreshType) {
-                    LedStripStatus ledStripStatus = ledStripDriver.getPowerStatus();
-                    logger.debug("Requesting refresh on Cololight, current state is {}", ledStripStatus);
-                    if (ledStripStatus == LedStripStatus.ON) {
-                        updateState(channelUID, OnOffType.ON);
-                    } else if (ledStripStatus == LedStripStatus.OFF) {
-                        updateState(channelUID, OnOffType.OFF);
-                    } else {
-                        updateState(channelUID, UnDefType.UNDEF);
-                    }
+                }
+            } else if (CHANNEL_BRIGHTNESS.equals(channelUID.getId())) {
+                logger.debug("Brightness command {} {}", command.toString(), command.getClass());
+                if (command instanceof PercentType) {
+                    ledStripDriver.setBrightness(((PercentType) command).intValue());
                 }
             }
         } catch (CommunicationException e) {
@@ -113,10 +117,14 @@ public class ColoLightHandler extends BaseThingHandler {
         } else if (ledStripDriver.getStatusIsOk()) {
             updateStatus(ThingStatus.ONLINE);
             try {
-                final OnOffType onOffType = (ledStripDriver.getPowerStatus() == LedStripStatus.ON) ? OnOffType.ON
-                        : OnOffType.OFF;
+                final LedStripStatus ledStripStatus = ledStripDriver.getLedStripStatus();
+                logger.debug(ledStripStatus.toString());
                 getThing().getChannels().forEach(channel -> {
-                    updateState(channel.getUID(), onOffType);
+                    if (CHANNEL_POWER.equals(channel.getUID().getId())) {
+                        updateState(channel.getUID(), ledStripStatus.getPower());
+                    } else if (CHANNEL_BRIGHTNESS.equals(channel.getUID().getId())) {
+                        updateState(channel.getUID(), ledStripStatus.getBrightness());
+                    }
                 });
             } catch (CommunicationException communicationException) {
                 updateStatus(ThingStatus.OFFLINE);
