@@ -4,12 +4,15 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.Map;
 
 import org.eclipse.smarthome.core.library.types.OnOffType;
 import org.eclipse.smarthome.core.library.types.PercentType;
 import org.openhab.binding.cololight.internal.exception.CommunicationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import jersey.repackaged.com.google.common.collect.ImmutableMap;
 
 public class LedStripDriver {
     private final Logger logger = LoggerFactory.getLogger(LedStripDriver.class);
@@ -38,19 +41,6 @@ public class LedStripDriver {
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x16, (byte) 0x00, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x04,
             (byte) 0x16, (byte) 0x03, (byte) 0x01, (byte) 0xCF, (byte) 0x00 };
-    // protected static byte[] brightnessFiftyPercent = { (byte) 0x53, (byte) 0x5A, (byte) 0x30, (byte) 0x30, (byte)
-    // 0x00,
-    // (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x20, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-    // (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-    // (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x17, (byte) 0x00, (byte) 0x00,
-    // (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x04,
-    // (byte) 0x16, (byte) 0x03, (byte) 0x01, (byte) 0xCF, (byte) 0x2F };
-    // protected static byte[] brightnessHundredPercent = { (byte) 0x53, (byte) 0x5a, (byte) 0x30, (byte) 0x30,
-    // (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x20, (byte) 0x00, (byte) 0x00,
-    // (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-    // (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x15, (byte) 0x00,
-    // (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-    // (byte) 0x04, (byte) 0x16, (byte) 0x03, (byte) 0x01, (byte) 0xCF, (byte) 0x64 };
     protected static byte[] statusCheckMessageOne = { (byte) 0x53, (byte) 0x5a, (byte) 0x30, (byte) 0x30, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x1e, (byte) 0x00, (byte) 0x00, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
@@ -63,6 +53,17 @@ public class LedStripDriver {
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x08, (byte) 0x00, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x03,
             (byte) 0x08, (byte) 0x01, (byte) 0x01 };
+
+    final static Map<String, byte[]> effects = ImmutableMap.<String, byte[]> builder()
+            .put("80sclub", new byte[] { (byte) 0x04, (byte) 0x9a, (byte) 0x00, (byte) 0x00 })
+            .put("cherryBlossom", new byte[] { (byte) 0x04, (byte) 0x94, (byte) 0x08, (byte) 0x00 })
+            .put("cocktailParade", new byte[] { (byte) 0x05, (byte) 0xbd, (byte) 0x06, (byte) 0x90 })
+            .put("savasana", new byte[] { (byte) 0x04, (byte) 0x97, (byte) 0x04, (byte) 0x00 })
+            .put("sunrise", new byte[] { (byte) 0x01, (byte) 0xc1, (byte) 0x0a, (byte) 0x00 })
+            .put("unicorns", new byte[] { (byte) 0x04, (byte) 0x9a, (byte) 0x0e, (byte) 0x00 })
+            .put("pensieve", new byte[] { (byte) 0x04, (byte) 0xc4, (byte) 0x06, (byte) 0x00 })
+            .put("theCircus", new byte[] { (byte) 0x04, (byte) 0x81, (byte) 0x01, (byte) 0x30 })
+            .put("instargrammer", new byte[] { (byte) 0x03, (byte) 0xbc, (byte) 0x01, (byte) 0x90 }).build();
 
     public LedStripDriver() {
         this("localhost", 8900, 3000);
@@ -138,7 +139,6 @@ public class LedStripDriver {
 
     public void setBrightness(int percentage) throws CommunicationException {
         logger.debug("Brightness {}%", percentage);
-
         sendRaw(getBytesForBrightness(percentage));
     }
 
@@ -147,6 +147,19 @@ public class LedStripDriver {
         System.arraycopy(LedStripDriver.brightnessZeroPercent, 0, brightness, 0, brightness.length);
         brightness[brightness.length - 1] = (byte) percentage;
         return brightness;
+    }
+
+    public void setEffect(String effectName) throws CommunicationException {
+        sendRaw(getBytesForEffect(effectName));
+    }
+
+    protected byte[] getBytesForEffect(String effectName) {
+        byte[] effect = new byte[prefix.length + colorCmd.length + effects.get(effectName).length];
+        System.arraycopy(prefix, 0, effect, 0, prefix.length);
+        System.arraycopy(colorCmd, 0, effect, prefix.length, colorCmd.length);
+        System.arraycopy(effects.get(effectName), 0, effect, prefix.length + colorCmd.length,
+                effects.get(effectName).length);
+        return effect;
     }
 
     public static String bytesToHex(byte[] bytes) {

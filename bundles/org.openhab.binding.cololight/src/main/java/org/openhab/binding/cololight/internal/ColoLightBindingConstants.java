@@ -36,4 +36,5 @@ public class ColoLightBindingConstants {
     // List of all Channel ids
     public static final String CHANNEL_POWER = "power";
     public static final String CHANNEL_BRIGHTNESS = "brightness";
+    public static final String CHANNEL_EFFECT = "effect";
 }

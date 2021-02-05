@@ -11,6 +11,7 @@
 		<channels>
 			<channel id="power" typeId="power"/>
 			<channel id="brightness" typeId="brightness"/>
+			<channel id="effect" typeId="effect"/>
 		</channels>
 
 		<config-description>
@@ -42,5 +43,23 @@
 		<item-type>Dimmer</item-type>
 		<label>Brightness</label>
 		<category>Brightness</category>
+	</channel-type>
+	<channel-type id="effect" advanced="false">
+		<item-type>String</item-type>
+		<label>Effect</label>
+		<state readOnly="false">
+			<options>
+				<option value="97">NONE</option>
+				<option value="80sclub">80s Club</option>
+				<option value="cherryBlossom">Cherry Blossom</option>
+				<option value="cocktailParade">Cocktail Parade</option>
+				<option value="savasana">Savana</option>
+				<option value="sunrise">Sunrise</option>
+				<option value="unicorns">Unicorns</option>
+				<option value="pensieve">Pensieve</option>
+				<option value="theCircus">The Circus</option>
+				<option value="instargrammer">Instargrammer</option>
+			</options>
+		</state>
 	</channel-type>
 </thing:thing-descriptions>

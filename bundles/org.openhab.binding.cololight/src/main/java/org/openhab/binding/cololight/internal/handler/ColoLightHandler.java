@@ -84,6 +84,9 @@ public class ColoLightHandler extends BaseThingHandler {
                 if (command instanceof PercentType) {
                     ledStripDriver.setBrightness(((PercentType) command).intValue());
                 }
+            } else if (CHANNEL_EFFECT.equals(channelUID.getId())) {
+                logger.debug("Effect command {} {}", command.toString(), command.getClass());
+                ledStripDriver.setEffect(command.toString());
             }
         } catch (CommunicationException e) {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
@@ -123,7 +126,10 @@ public class ColoLightHandler extends BaseThingHandler {
                     if (CHANNEL_POWER.equals(channel.getUID().getId())) {
                         updateState(channel.getUID(), ledStripStatus.getPower());
                     } else if (CHANNEL_BRIGHTNESS.equals(channel.getUID().getId())) {
-                        updateState(channel.getUID(), ledStripStatus.getBrightness());
+                        // Not interested in updating brightness when LED is off.
+                        if (OnOffType.ON.equals(ledStripStatus.getPower())) {
+                            updateState(channel.getUID(), ledStripStatus.getBrightness());
+                        }
                     }
                 });
             } catch (CommunicationException communicationException) {
