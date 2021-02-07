@@ -17,10 +17,9 @@ import static org.openhab.binding.cololight.internal.ColoLightBindingConstants.*
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.core.library.types.OnOffType;
 import org.eclipse.smarthome.core.library.types.PercentType;
+import org.eclipse.smarthome.core.library.types.StringType;
 import org.eclipse.smarthome.core.thing.ChannelUID;
 import org.eclipse.smarthome.core.thing.Thing;
 import org.eclipse.smarthome.core.thing.ThingStatus;
@@ -28,6 +27,7 @@ import org.eclipse.smarthome.core.thing.ThingStatusDetail;
 import org.eclipse.smarthome.core.thing.binding.BaseThingHandler;
 import org.eclipse.smarthome.core.types.Command;
 import org.eclipse.smarthome.core.types.RefreshType;
+import org.jetbrains.annotations.NotNull;
 import org.openhab.binding.cololight.internal.LedStripDriver;
 import org.openhab.binding.cololight.internal.LedStripStatus;
 import org.openhab.binding.cololight.internal.configuration.ColoLightConfiguration;
@@ -41,32 +41,46 @@ import org.slf4j.LoggerFactory;
  *
  * @author Sarris Overbosch - Initial contribution
  */
-@NonNullByDefault
 public class ColoLightHandler extends BaseThingHandler {
 
     private final Logger logger = LoggerFactory.getLogger(ColoLightHandler.class);
 
-    private @Nullable LedStripDriver ledStripDriver;
+    private LedStripDriver ledStripDriver;
 
-    private @Nullable ScheduledFuture<?> pollingJob;
+    private ScheduledFuture<?> pollingJob;
 
     public ColoLightHandler(Thing thing) {
         super(thing);
     }
 
     @Override
-    public void handleCommand(ChannelUID channelUID, Command command) {
-        assert ledStripDriver != null;
+    public void handleCommand(@NotNull ChannelUID channelUID, @NotNull Command command) {
+        if (ledStripDriver == null) {
+            logger.error("Initialization problem occurred, handler not initialized properly");
+            return;
+        }
         logger.debug("Handle command {} for channel {}", command, channelUID);
         try {
             if (command instanceof RefreshType) {
                 LedStripStatus ledStripStatus = ledStripDriver.getLedStripStatus();
                 logger.debug("Requesting refresh on Cololight, current state is {}", ledStripStatus);
-                if (CHANNEL_POWER.equals(channelUID.getId())) {
-                    updateState(channelUID, ledStripStatus.getPower());
-                }
-                if (CHANNEL_BRIGHTNESS.equals(channelUID.getId())) {
-                    updateState(channelUID, ledStripStatus.getBrightness());
+                switch (channelUID.getId()) {
+                    case CHANNEL_POWER:
+                        logger.trace("Updating Power channel with {}", ledStripStatus.getPower());
+                        updateState(channelUID, ledStripStatus.getPower());
+                        break;
+                    case CHANNEL_BRIGHTNESS:
+                        logger.trace("Updating Brightness channel with {}", ledStripStatus.getBrightness());
+                        updateState(channelUID, ledStripStatus.getBrightness());
+                        break;
+                    case CHANNEL_EFFECT:
+                        logger.trace("Updating Effect channel with {}", ledStripStatus.getEffect());
+                        updateState(channelUID, ledStripStatus.getEffect());
+                        break;
+                    case CHANNEL_SPEED:
+                        logger.trace("Updating Speed channel with {}", ledStripStatus.getDelay());
+                        updateState(channelUID, ledStripStatus.getDelay());
+                        break;
                 }
             } else if (CHANNEL_POWER.equals(channelUID.getId())) {
                 if (command instanceof OnOffType) {
@@ -83,12 +97,20 @@ public class ColoLightHandler extends BaseThingHandler {
                 logger.debug("Brightness command {} {}", command.toString(), command.getClass());
                 if (command instanceof PercentType) {
                     ledStripDriver.setBrightness(((PercentType) command).intValue());
+                    updateState(channelUID, (PercentType) command);
                 }
             } else if (CHANNEL_EFFECT.equals(channelUID.getId())) {
                 logger.debug("Effect command {} {}", command.toString(), command.getClass());
                 ledStripDriver.setEffect(command.toString());
+                updateState(channelUID, (StringType) command);
+            } else if (CHANNEL_SPEED.equals(channelUID.getId())) {
+                logger.debug("Speed command {} {}", command.toString(), command.getClass());
+                ledStripDriver.setEffectDelay(((PercentType) command).intValue());
+                updateState(channelUID, (PercentType) command);
+                triggerChannel(CHANNEL_EFFECT);
             }
         } catch (CommunicationException e) {
+            logger.error("Communication problem: {}", e.getMessage());
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
         }
     }
@@ -111,6 +133,7 @@ public class ColoLightHandler extends BaseThingHandler {
         });
 
         pollingJob = scheduler.scheduleWithFixedDelay(this::statusPoll, 30, 30, TimeUnit.SECONDS);
+        logger.debug("Finished initializing");
     }
 
     public void statusPoll() {
@@ -121,8 +144,9 @@ public class ColoLightHandler extends BaseThingHandler {
             updateStatus(ThingStatus.ONLINE);
             try {
                 final LedStripStatus ledStripStatus = ledStripDriver.getLedStripStatus();
-                logger.debug(ledStripStatus.toString());
+                logger.debug("Polling result: {}", ledStripStatus.toString());
                 getThing().getChannels().forEach(channel -> {
+                    logger.trace("Sending update to channel {}", channel.getUID().getId());
                     if (CHANNEL_POWER.equals(channel.getUID().getId())) {
                         updateState(channel.getUID(), ledStripStatus.getPower());
                     } else if (CHANNEL_BRIGHTNESS.equals(channel.getUID().getId())) {
@@ -130,9 +154,14 @@ public class ColoLightHandler extends BaseThingHandler {
                         if (OnOffType.ON.equals(ledStripStatus.getPower())) {
                             updateState(channel.getUID(), ledStripStatus.getBrightness());
                         }
+                    } else if (CHANNEL_SPEED.equals(channel.getUID().getId())) {
+                        updateState(channel.getUID(), ledStripStatus.getDelay());
+                    } else if (CHANNEL_EFFECT.equals(channel.getUID().getId())) {
+                        updateState(channel.getUID(), ledStripStatus.getEffect());
                     }
                 });
             } catch (CommunicationException communicationException) {
+                logger.error("Communication error during polling: {}", communicationException.getMessage());
                 updateStatus(ThingStatus.OFFLINE);
             }
         } else {

@@ -12,6 +12,7 @@
 			<channel id="power" typeId="power"/>
 			<channel id="brightness" typeId="brightness"/>
 			<channel id="effect" typeId="effect"/>
+			<channel id="delay" typeId="delay"/>
 		</channels>
 
 		<config-description>
@@ -47,9 +48,9 @@
 	<channel-type id="effect" advanced="false">
 		<item-type>String</item-type>
 		<label>Effect</label>
+		<category>Effect</category>
 		<state readOnly="false">
 			<options>
-				<option value="97">NONE</option>
 				<option value="80sclub">80s Club</option>
 				<option value="cherryBlossom">Cherry Blossom</option>
 				<option value="cocktailParade">Cocktail Parade</option>
@@ -61,5 +62,10 @@
 				<option value="instargrammer">Instargrammer</option>
 			</options>
 		</state>
+	</channel-type>
+	<channel-type id="delay" advanced="false">
+		<item-type>Dimmer</item-type>
+		<label>Effect Delay</label>
+		<category>Effect</category>
 	</channel-type>
 </thing:thing-descriptions>
