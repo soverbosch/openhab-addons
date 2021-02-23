@@ -40,52 +40,62 @@ public class LedStripDriver {
     //
     // Turning the LED on/off in wanted brightness
     // 000102030405060708091011121314151617181920212223242526272829303132333435363738394041 - Index
-    // 535a3030000000000020000000000000000000000000000000000100000000000000000004010301ce33
+    // 535a3030000000000020000000000000000000000000000000000100000000000000000004000301ce33
     // ^^^^^^^^^^^^^^^^^^-------------------------------------------------------------------- Prefix
     // ..................^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-------------- ConfigCmd
     // ....................................................^^-------------------------------- Request count? (27)
-    // ..................^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^--^^^^^^^^^^^^^^^^^^-------------- Unknown
+    // ..................^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^--^^^^^^^^^^^^^^^^^^--^^^^^^------ Unknown
     // ................................................................................^^---- ON(CF)/OFF(CE) byte (40)
     // ..................................................................................^^-- BRIGHTNESS byte (41)
+    // ^^^^^^^^^^^^^^^^^^^^--------------------------------^^------------------^^--^^^^^^^^-- Needed
     //
     // Setting Effect at wanted delay
     // 000102030405060708091011121314151617181920212223242526272829303132333435363738394041424344 - Index
-    // 535a3030000000000023000000000000000000000000000000000100000000000000000004010602ff04c47f00
+    // 535a3030000000000023000000000000000000000000000000000100000000000000000004000602ff04c47f00
     // ^^^^^^^^^^^^^^^^^^-------------------------------------------------------------------------- Prefix
     // ..................^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-------------------- ColorCmd
     // ....................................................^^-------------------------------------- Request count? (27)
-    // ..................^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^--^^^^^^^^^^^^^^^^^^^^^^^^^^--------^^-- Unknown
+    // ..................^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^--^^^^^^^^^^^^^^^^^^--^^^^^^------------ Unknown
+    // ................................................................................^^---------- Flow ON(FF)/OFF(EE)
     // ..................................................................................^^^^------ Effect (41,42)
     // ......................................................................................^^---- Delay (43)
+    // ........................................................................................^^-- LED's used/Fading?
+    // ^^^^^^^^^^^^^^^^^^^^--------------------------------^^------------------^^--^^^^^^^^^^^^^^-- Needed
     //
     // Delay: 1 means it will go fast and 100 means it will go slow (0 does not work)
+    //
+    // Status
+    // 00010203040506070809101112131415161718192021222324252627282930313233343536373839 - Index
+    // 535a303000000000001e00000000000000000000000000000000010000000000000000000b070186
+    // ^^^^^^^^^^^^^^^^^^---------------------------------------------------------------- Prefix
+    // ..................^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^--^^^^^^^^^^^^^^^^^^^^^^^^^^-- Unknown
+    // ....................................................^^---------------------------- Request count? (27)
+    // ^^^^^^^^^^^^^^^^^^^^--------------------------------^^------------------^^^^^^^^-- Needed
+    //
     private static final byte[] prefix = { (byte) 0x53, (byte) 0x5A, (byte) 0x30, (byte) 0x30, (byte) 0x00, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00 };
     private static final byte[] configCmd = { (byte) 0x20, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00 };
+            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x04, (byte) 0x00,
+            (byte) 0x03, (byte) 0x01 };
     private static final byte[] colorCmd = { (byte) 0x23, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x04, (byte) 0x01,
+            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x04, (byte) 0x00,
             (byte) 0x06, (byte) 0x02, (byte) 0xFF };
     // byte index 6: brightness
-    private static final byte[] on = { (byte) 0x04, (byte) 0x01, (byte) 0x03, (byte) 0x01, ON,
-            DEFAULT_BRIGHTNESS_VALUE };
-    private static final byte[] off = { (byte) 0x04, (byte) 0x01, (byte) 0x03, (byte) 0x01, OFF,
-            DEFAULT_BRIGHTNESS_VALUE };
+    private static final byte[] on = { ON, DEFAULT_BRIGHTNESS_VALUE };
+    private static final byte[] off = { OFF, DEFAULT_BRIGHTNESS_VALUE };
 
     // byte index 27: request counter (> 0x00)
-    private static final byte[] statusCheckMessageOne = { (byte) 0x53, (byte) 0x5a, (byte) 0x30, (byte) 0x30,
-            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x1e, (byte) 0x00, (byte) 0x00,
+    private static final byte[] statusCheckMessageOne = { (byte) 0x1E, (byte) 0x00, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x01, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
             (byte) 0x0b, (byte) 0x07, (byte) 0x01, (byte) 0x86 };
     // byte index 27: request counter (> 0x00)
-    private static final byte[] statusCheckMessageTwo = { (byte) 0x53, (byte) 0x5a, (byte) 0x30, (byte) 0x30,
-            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x1e, (byte) 0x00, (byte) 0x00,
+    private static final byte[] statusCheckMessageTwo = { (byte) 0x1E, (byte) 0x00, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x01, (byte) 0x00,
             (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
@@ -164,8 +174,12 @@ public class LedStripDriver {
 
     public LedStripStatus getLedStripStatus() throws CommunicationException {
         logger.debug("Getting Cololight status");
-        sendRaw(statusCheckMessageOne);
-        byte[] received = sendRaw(statusCheckMessageTwo);
+        byte[] command = new byte[prefix.length + statusCheckMessageOne.length];
+        System.arraycopy(prefix, 0, command, 0, prefix.length);
+        System.arraycopy(statusCheckMessageOne, 0, command, prefix.length, statusCheckMessageOne.length);
+        sendRaw(command);
+        System.arraycopy(statusCheckMessageTwo, 0, command, prefix.length, statusCheckMessageTwo.length);
+        byte[] received = sendRaw(command);
         LedStripStatus result = new LedStripStatus();
 
         if (received[ON_OFF_BYTE_LOCATION] == ON) {

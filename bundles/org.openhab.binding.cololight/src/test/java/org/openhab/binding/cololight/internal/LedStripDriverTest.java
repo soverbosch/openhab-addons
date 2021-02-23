@@ -1,6 +1,7 @@
 package org.openhab.binding.cololight.internal;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicReference;
@@ -12,7 +13,6 @@ import org.eclipse.smarthome.core.library.types.StringType;
 import org.junit.*;
 import org.openhab.binding.cololight.internal.exception.CommunicationException;
 
-@Ignore
 public class LedStripDriverTest {
 
     @Before
@@ -119,6 +119,36 @@ public class LedStripDriverTest {
 
         // then
         Assert.assertEquals("cherryBlossom", underTest.getLedStripStatus().getEffect().toString());
+    }
+
+    @Test
+    public void anotherTest() throws CommunicationException {
+        byte[] command = new BigInteger("535a3030000000000023000000000000000000000000000000000100000000000000000004FF0602FF04c43600", 16).toByteArray();
+
+        sendRaw(command);
+    }
+
+    private byte[] sendRaw(final byte[] data) throws CommunicationException {
+        try {
+            byte[] received;
+            DatagramSocket socket = new DatagramSocket();
+            socket.setSoTimeout(3000);
+            InetAddress address = InetAddress.getByName("192.168.0.218");
+
+            DatagramPacket packet = new DatagramPacket(data, data.length, address, 8900);
+            socket.send(packet);
+
+            byte[] buf = new byte[256];
+            packet = new DatagramPacket(buf, buf.length);
+            socket.receive(packet);
+            received = new byte[packet.getLength()];
+            System.arraycopy(packet.getData(), 0, received, 0, packet.getLength());
+            socket.close();
+
+            return received;
+        } catch (IOException e) {
+            throw new CommunicationException(e.getMessage());
+        }
     }
 
     @Test
